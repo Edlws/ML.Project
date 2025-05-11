@@ -1,8 +1,10 @@
 import streamlit as st
 from transformers import pipeline
-import trafilatura
+from boilerpy3 import extractors
 import json
 import os
+
+extractor = extractors.ArticleExtractor()
 
 st.sidebar.header("Model metrics")
 
@@ -14,13 +16,11 @@ if os.path.exists("eval_metrics.json"):
     st.sidebar.metric("Precision", f"{metrics['eval_precision']:.2f}")
     st.sidebar.metric("Recall", f"{metrics['eval_recall']:.2f}")
 
-
 if os.path.exists("eval_report.txt"):
     with open("eval_report.txt", "r") as f:
         report = f.read()
     with st.expander("Report: (classification_report)"):
         st.text(report)
-
 
 @st.cache_resource
 def load_model():
@@ -30,30 +30,35 @@ ner = load_model()
 
 st.title("Product Extractor")
 
-url = st.text_input("Enter url:")
+url = st.text_input("Enter URL:")
 
 if url:
     st.write("Processing...")
-    downloaded = trafilatura.fetch_url(url)
+    
+    try:
 
-    if downloaded:
-        text = trafilatura.extract(downloaded, no_fallback=False)
-        if text:
-            st.success("Text successfully extracted")
-            with st.expander("Show text"):
-                st.write(text) 
+        downloaded = extractor.get_doc_from_url(url)
+        
+        if downloaded:
+            text = downloaded.content
+            if text:
+                st.success("Text successfully extracted")
+                with st.expander("Show text"):
+                    st.write(text) 
 
-            st.write("Searching for products...")
-            results = ner(text)
-            products = [r["word"] for r in results if r["entity_group"] == "PRODUCT"]
+                st.write("Searching for products...")
+                results = ner(text)
+                products = [r["word"] for r in results if r["entity_group"] == "PRODUCT"]
 
-            if products:
-                st.success("Products:")
-                for p in set(products):
-                    st.write(f"• {p}")
+                if products:
+                    st.success("Products found:")
+                    for p in set(products):
+                        st.write(f"• {p}")
+                else:
+                    st.warning("No products found.")
             else:
-                st.warning("Products not found.")
+                st.error("Failed to extract text from the page")
         else:
-            st.error("Text extracting failed")
-    else:
-        st.error("Page loading failed")
+            st.error("Failed to download the page content")
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
