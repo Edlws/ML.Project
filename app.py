@@ -37,7 +37,7 @@ if url:
     downloaded = trafilatura.fetch_url(url)
 
     if downloaded:
-        text = trafilatura.extract(downloaded)
+        text = trafilatura.extract(downloaded, no_fallback=False)
         if text:
             st.success("Text successfully extracted")
             with st.expander("Show text"):
